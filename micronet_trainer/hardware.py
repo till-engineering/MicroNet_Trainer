@@ -53,7 +53,7 @@ def collect(device: str, output: Path, workers: int, batch_size: int | None) -> 
         "cpu": f"{cpu_name()}, {psutil.cpu_count(logical=False)} Kerne / {psutil.cpu_count()} Threads",
         "ram_gb": round(memory.total / GB, 1),
         "ram_free_gb": round(memory.available / GB, 1),
-        "torch": torch.__version__,
+        "torch": str(torch.__version__),        # TorchVersion-Objekt -> Text (YAML kann es sonst nicht)
         "device": device,
         "disk_free_gb": round(shutil.disk_usage(output).free / GB, 1),
         "dataloader_workers": workers,
@@ -61,7 +61,7 @@ def collect(device: str, output: Path, workers: int, batch_size: int | None) -> 
     }
     try:
         import segmentation_models_pytorch as smp
-        info["smp"] = smp.__version__
+        info["smp"] = str(smp.__version__)
     except ImportError:
         info["smp"] = "fehlt"
     if device == "cuda":
@@ -73,8 +73,8 @@ def collect(device: str, output: Path, workers: int, batch_size: int | None) -> 
             "gpu_memory_gb": round(total / GB, 1),
             "gpu_memory_free_gb": round(free / GB, 1),
             "gpu_compute": f"{props.major}.{props.minor}",
-            "cuda": torch.version.cuda,
-            "cudnn": torch.backends.cudnn.version(),
+            "cuda": str(torch.version.cuda),
+            "cudnn": str(torch.backends.cudnn.version()),
             "amp_float16": True,
         })
     return info
@@ -97,8 +97,27 @@ def describe(info: dict) -> str:
     return "\n".join(lines)
 
 
+def plain(value):
+    """Nur einfache Typen für YAML: Zahlen-/Text-Unterklassen (numpy, TorchVersion, Path …) umwandeln."""
+    if isinstance(value, dict):
+        return {str(k): plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [plain(v) for v in value]
+    if value is None or type(value) in (bool, int, float, str):
+        return value
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return float(value)
+    if hasattr(value, "item"):              # numpy-Skalar
+        return plain(value.item())
+    return str(value)
+
+
 def save(info: dict, path: Path) -> None:
-    path.write_text(yaml.safe_dump(info, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    path.write_text(yaml.safe_dump(plain(info), sort_keys=False, allow_unicode=True), encoding="utf-8")
 
 
 class GpuMonitor:

@@ -5,7 +5,6 @@ Optuna speichert in study.db (SQLite). Abbruch (Strg+C, Absturz, Stromausfall): 
 fort – ein unterbrochener Trial läuft ab seinem letzten Checkpoint weiter.
 """
 
-import json
 import shutil
 import time
 from datetime import datetime
@@ -17,6 +16,7 @@ import torch
 import yaml
 
 from . import compat, engine, evaluation, report
+from .hardware import plain
 from .engine import lambda_tag
 
 COMPLETE, PRUNED, FAIL, RUNNING = (optuna.trial.TrialState.COMPLETE, optuna.trial.TrialState.PRUNED,
@@ -61,8 +61,7 @@ class State:
         if clock is not None:
             self.data["used_s"] = round(clock.used(), 1)
         tmp = self.path.with_name(self.path.name + ".tmp")
-        tmp.write_text(yaml.safe_dump(json.loads(json.dumps(self.data, default=float)), sort_keys=False,
-                                      allow_unicode=True), encoding="utf-8")
+        tmp.write_text(yaml.safe_dump(plain(self.data), sort_keys=False, allow_unicode=True), encoding="utf-8")
         tmp.replace(self.path)
 
 
@@ -83,7 +82,7 @@ def export_model(run, destination: Path, weights: Path, threshold: float, meta: 
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir(parents=True)
     shutil.copyfile(weights, tmp / compat.WEIGHTS_FILE)
-    compat.write_recipe(tmp, json.loads(json.dumps(recipe, default=float)))
+    compat.write_recipe(tmp, plain(recipe))
     for name in ("split.yaml", "hardware.yaml"):
         if (run.folder / name).is_file():
             shutil.copyfile(run.folder / name, tmp / name)
