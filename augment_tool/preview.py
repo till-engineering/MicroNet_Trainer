@@ -81,7 +81,7 @@ def crop(unit: np.ndarray, mask: np.ndarray, size: int, rng: np.random.Generator
 # ---------------------------------------------------------------- Bilder zusammensetzen
 
 def to_rgb8(image: np.ndarray, mask: np.ndarray, show_mask: bool) -> np.ndarray:
-    rgb = (np.clip(image, 0, 1) * 255 + 0.5).astype(np.uint8)
+    rgb = np.ascontiguousarray((np.clip(image, 0, 1) * 255 + 0.5).astype(np.uint8))
     if show_mask and mask.any():
         contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         cv2.drawContours(rgb, contours, -1, MASK_COLOR, 1)

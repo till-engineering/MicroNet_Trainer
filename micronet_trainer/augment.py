@@ -243,7 +243,7 @@ def check(cfg: dict) -> None:
 
 def apply_one(name: str, image: np.ndarray, mask: np.ndarray, value, rng: np.random.Generator):
     image, mask = FUNCTIONS[name](image, mask, value, rng)
-    return np.clip(image, 0, 1).astype(np.float32, copy=False), mask
+    return np.ascontiguousarray(np.clip(image, 0, 1), dtype=np.float32), np.ascontiguousarray(mask)
 
 
 def apply(image: np.ndarray, mask: np.ndarray, cfg: dict, rng: np.random.Generator,
@@ -260,4 +260,4 @@ def apply(image: np.ndarray, mask: np.ndarray, cfg: dict, rng: np.random.Generat
         image, mask = FUNCTIONS[name](image, mask, value, rng)
         if log is not None:
             log.append((name, value))
-    return np.clip(image, 0, 1).astype(np.float32, copy=False), mask
+    return np.ascontiguousarray(np.clip(image, 0, 1), dtype=np.float32), np.ascontiguousarray(mask)

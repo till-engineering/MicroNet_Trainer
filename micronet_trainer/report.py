@@ -126,8 +126,9 @@ def augment_examples(path: Path, stream, count: int = 12, columns: int = 4) -> N
     for _ in range(count):
         image, mask = stream.patch(rng, opened)
         unit = image.numpy().transpose(1, 2, 0) * std + mean
-        rgb = (np.clip(unit, 0, 1) * 255 + 0.5).astype(np.uint8)
-        m = mask.numpy()[0].astype(np.uint8)
+        # transpose liefert eine Ansicht mit vertauschten Schritten; OpenCV braucht ein zusammenhängendes Array
+        rgb = np.ascontiguousarray((np.clip(unit, 0, 1) * 255 + 0.5).astype(np.uint8))
+        m = np.ascontiguousarray(mask.numpy()[0].astype(np.uint8))
         contours, _ = cv2.findContours(m, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         cv2.drawContours(rgb, contours, -1, (255, 0, 255), 1)
         tiles.append(rgb)
