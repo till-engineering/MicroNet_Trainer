@@ -119,8 +119,8 @@ def single(image, mask, cfg, preview, seed) -> np.ndarray:
     count = 2 + preview["random_values"]
     rows = []
     for index, name in enumerate(augment.ORDER):
-        entry = cfg[name]
-        if preview["only_enabled"] and not entry["enabled"]:
+        entry = cfg.get(name)
+        if entry is None or (preview["only_enabled"] and not entry["enabled"]):
             continue
         state = "an" if entry["enabled"] else "AUS"
         p = "" if name == "flip_rotate" else f", p {entry['probability']}"
@@ -131,6 +131,12 @@ def single(image, mask, cfg, preview, seed) -> np.ndarray:
             values = [(v, "") for v in FLIP_VARIANTS[:count]]
         elif name == "grayscale":
             values = [(True, "")]
+        elif name == "tint":
+            lo, hi = augment.value_range(name, cfg, strength)
+            colors = [[float(c) for c in color] for color in entry["colors"]]
+            values = [((hi, color), f"max Farbe {i}") for i, color in enumerate(colors, 1)]
+            values += [((lo, colors[0]), "min")]
+            values += [(augment.sample(name, cfg, rng, strength), "zufällig") for _ in range(preview["random_values"])]
         else:
             lo, hi = augment.value_range(name, cfg, strength)
             values = [(lo, "min"), (hi, "max")]

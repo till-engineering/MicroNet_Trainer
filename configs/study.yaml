@@ -114,6 +114,13 @@ augment:                              # aus augment_tool/augment_config.yaml üb
     enabled: true
     probability: 0.5
     range: [0.8, 1.2]
+  tint:
+    enabled: true
+    probability: 0.3
+    colors:
+      - [255, 230, 160]
+      - [240, 225, 200]
+    range: [0.0, 0.3]
   grayscale:
     enabled: false
     probability: 0.1

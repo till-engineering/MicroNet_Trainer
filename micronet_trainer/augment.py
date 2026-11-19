@@ -13,6 +13,8 @@ Jede Augmentierung ist einzeln einstellbar (Abschnitt augment: der Config):
     scale         Vergrößerungsfaktor (Bild + Maske)             1
     hue           Verschiebung des Farbtons, Anteil am Farbkreis  0      (0.03 = ±11°)
     saturation    Faktor der Sättigung                            1
+    tint          Farbstich (Weißabgleich / Lichtfarbe): Stärke   0      (colors: Liste RGB-Tönungen, je
+                  Patch eine zufällig; Bild x ((1 - s) + s x Farbe / max(Farbe)) -> Schwarz bleibt schwarz)
     grayscale     Bild wird grau (kein range)                     –
     brightness    Faktor der Helligkeit                           1
     contrast      Faktor des Kontrasts um den Patch-Mittelwert    1
@@ -24,6 +26,7 @@ Jede Augmentierung ist einzeln einstellbar (Abschnitt augment: der Config):
     jpeg          JPEG-Qualität                                   100
 
 Reihenfolge: wie in der Tabelle (Geometrie, Farbe, Belichtung, Optik, Sensor, Speicherung).
+Optionale Einträge (OPTIONAL, z. B. tint) dürfen in der Config fehlen und gelten dann als aus.
 
 strength (global, fürs Tuning): skaliert bei allen Augmentierungen außer flip_rotate, scale und grayscale
 den Abstand der Bereichsgrenzen zum neutralen Wert (1 = wie eingestellt, 0 = alles neutral,
@@ -41,6 +44,7 @@ SPEC = {
     "scale": (1.0, True, False),
     "hue": (0.0, False, True),
     "saturation": (1.0, False, True),
+    "tint": (0.0, False, True),
     "grayscale": (None, False, False),
     "brightness": (1.0, False, True),
     "contrast": (1.0, False, True),
@@ -52,6 +56,7 @@ SPEC = {
     "jpeg": (100.0, False, True),
 }
 ORDER = list(SPEC)
+OPTIONAL = {"tint"}                 # dürfen in älteren Configs fehlen (= aus)
 
 
 # ---------------------------------------------------------------- Werte
@@ -75,6 +80,10 @@ def sample(name: str, cfg: dict, rng: np.random.Generator, strength: float = 1.0
         return int(rng.integers(4)), bool(rng.random() < 0.5)
     if name == "grayscale":
         return True
+    if name == "tint":
+        lo, hi = value_range(name, cfg, strength)
+        colors = cfg["tint"]["colors"]
+        return float(rng.uniform(lo, hi)), [float(c) for c in colors[int(rng.integers(len(colors)))]]
     lo, hi = value_range(name, cfg, strength)
     if SPEC[name][1]:
         return float(math.exp(rng.uniform(math.log(lo), math.log(hi))))
@@ -87,6 +96,9 @@ def describe(name: str, value) -> str:
         return f"{90 * turns}°{' + Spiegel' if flip else ''}"
     if name == "grayscale":
         return "grau"
+    if name == "tint":
+        strength, color = value
+        return f"{strength:.2f} RGB({', '.join(f'{c:.0f}' for c in color)})"
     if name == "jpeg":
         return f"Q {value:.0f}"
     if name == "hue":
@@ -138,6 +150,13 @@ def _hue(image, mask, value, rng):
 
 def _saturation(image, mask, value, rng):
     return _hsv(image, saturation=value), mask
+
+
+def _tint(image, mask, value, rng):
+    strength, color = value
+    color = np.asarray(color, np.float32)
+    factor = (1 - strength) + strength * color / max(float(color.max()), 1.0)
+    return image * factor.astype(np.float32), mask
 
 
 def _grayscale(image, mask, value, rng):
@@ -195,7 +214,7 @@ def _jpeg(image, mask, value, rng):
 
 
 FUNCTIONS = {
-    "flip_rotate": _flip_rotate, "scale": _scale, "hue": _hue, "saturation": _saturation,
+    "flip_rotate": _flip_rotate, "scale": _scale, "hue": _hue, "saturation": _saturation, "tint": _tint,
     "grayscale": _grayscale, "brightness": _brightness, "contrast": _contrast, "gamma": _gamma,
     "gradient": _gradient, "vignette": _vignette, "blur": _blur, "noise": _noise, "jpeg": _jpeg,
 }
@@ -210,12 +229,16 @@ def check(cfg: dict) -> None:
         raise ValueError(f"augment: unbekannte Einträge {', '.join(sorted(unknown))}")
     for name in ORDER:
         if name not in cfg:
+            if name in OPTIONAL:
+                continue
             raise ValueError(f"augment: {name} fehlt")
         needed = {"enabled"} | ({"probability"} if name != "flip_rotate" else set()) | \
-                 ({"range"} if SPEC[name][0] is not None else set())
+                 ({"range"} if SPEC[name][0] is not None else set()) | ({"colors"} if name == "tint" else set())
         missing = needed - set(cfg[name])
         if missing:
             raise ValueError(f"augment.{name}: {', '.join(sorted(missing))} fehlt")
+        if name == "tint" and (not cfg[name]["colors"] or any(len(c) != 3 for c in cfg[name]["colors"])):
+            raise ValueError("augment.tint.colors: Liste von RGB-Farben, z. B. [[255, 230, 160], [240, 225, 200]]")
 
 
 def apply_one(name: str, image: np.ndarray, mask: np.ndarray, value, rng: np.random.Generator):
@@ -228,8 +251,8 @@ def apply(image: np.ndarray, mask: np.ndarray, cfg: dict, rng: np.random.Generat
     """Alle eingeschalteten Augmentierungen, jede mit ihrer Wahrscheinlichkeit. log: (name, Wert) je Schritt."""
     strength = cfg.get("strength", 1.0) if strength is None else strength
     for name in ORDER:
-        entry = cfg[name]
-        if not entry["enabled"]:
+        entry = cfg.get(name)
+        if entry is None or not entry["enabled"]:
             continue
         if name != "flip_rotate" and rng.random() >= entry["probability"]:
             continue

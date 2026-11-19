@@ -33,6 +33,13 @@ augment:
     enabled: true
     probability: 0.5
     range: [0.8, 1.2]
+  tint:                         # Farbstich (Weißabgleich / Lichtfarbe); Schwarz bleibt schwarz
+    enabled: true
+    probability: 0.3
+    colors:                     # mögliche Tönungen (RGB), je Patch eine zufällig
+      - [255, 230, 160]         # gelblich
+      - [240, 225, 200]         # beige
+    range: [0.0, 0.3]           # Stärke: 0 = kein Stich, 1 = volle Tönung
   grayscale:                    # ganz grau (nur sinnvoll, wenn es im Einsatz Graubilder gibt)
     enabled: false
     probability: 0.1
