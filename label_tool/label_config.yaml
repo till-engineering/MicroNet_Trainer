@@ -1,0 +1,37 @@
+# Einstellungen des Label-Tools (python label_tool/label.py).
+# Relative Pfade gelten ab dem Ordner dieser Datei. Alle Schlüssel werden gebraucht.
+
+paths:
+  input: input                # große Aufnahmen (.tif .tiff .png .jpg .jpeg .bmp)
+  model: model                # altes Modell: weights.pt + model.yaml hineinkopieren (leer = ohne Modell)
+  output: output              # images/, masks/, labels.csv
+  cache: cache                # Vorhersagen je Aufnahme (werden nur einmal gerechnet; darf gelöscht werden)
+
+window_px: 1000               # Kantenlänge der Label-Fenster (gespeicherte Ausschnitte)
+
+model:
+  device: auto                # auto | cuda | cpu
+  threshold: auto             # auto = Schwelle aus model.yaml, oder 0..1 (Startwert des Reglers)
+  tile_px: 4096               # die Aufnahme wird in Kacheln dieser Größe gerechnet (Speicher)
+  batch_size: 8               # Fenster je GPU-Schritt (wird bei vollem GPU-Speicher halbiert)
+
+proposals:
+  max: 300                    # höchstens so viele Vorschläge je Aufnahme
+  empty_windows: 20           # zusätzlich Fenster OHNE erkannte Pore (übersehene Poren / Negativbilder)
+  uncertain: [0.3, 0.7]       # Wahrscheinlichkeit in diesem Bereich = "unsicher"; unsichere Fenster zuerst
+  max_overlap: 0.2            # Vorschläge überlappen sich (und gelabelte Fenster) höchstens um diesen Anteil
+  edge_margin_px: 100         # die Pore liegt zufällig im Fenster, aber mindestens so weit vom Rand
+  manual_jitter_px: 250       # Klick in die Übersicht: Fenster um bis zu so viel zufällig verschoben
+  seed: 0                     # gleiche Vorschläge bei jedem Öffnen
+
+display:
+  mask_color: [0, 200, 255]   # RGB der Maske
+  mask_opacity: 0.35          # Füllung; der Rand wird immer deckend gezeichnet
+  auto_contrast: true         # nur Anzeige: Kontrast je Fenster strecken (dunkle 16-bit-Bilder); gespeichert
+                              # wird immer das unveränderte Original
+  overview_px: 1600           # lange Kante der Übersichtskarte
+
+brush:
+  radius_px: 6                # Startgröße (Strg + Mausrad, [ und ] ändern sie)
+  max_radius_px: 80
+  undo_steps: 50

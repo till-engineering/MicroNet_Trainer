@@ -1,0 +1,70 @@
+# Vorschau der Augmentierung (python augment_tool/preview.py).
+# Relative Pfade gelten ab dem Ordner dieser Datei. Alle Schlüssel werden gebraucht.
+# Der Abschnitt augment: wird 1:1 in die Trainings-Config übernommen.
+
+preview:
+  input: input                  # ein paar Bilder (Original, unverändert)
+  masks: input/masks            # optional: Masken mit gleichem Namen (Weiß = Pore); fehlt eine, geht es ohne
+  output: output                # <Bild>_einzeln.png, <Bild>_kombiniert.png, augment_config_used.yaml
+  max_images: 10                # höchstens so viele Bilder aus input
+  patch_px: 512                 # Ausschnittgröße = Trainings-Patch (wird NICHT verkleinert angezeigt)
+  random_values: 2              # einzeln: zusätzlich so viele Zufallswerte neben min und max
+  combined: 12                  # kombiniert: so viele Patches mit allen Augmentierungen wie im Training
+  columns: 4                    # kombiniert: Patches je Zeile
+  show_mask: true               # Rand der Maske dünn einzeichnen (prüft, ob Geometrie die Maske mitnimmt)
+  only_enabled: false           # einzeln: false = auch ausgeschaltete zeigen (zum Ausprobieren)
+  seed: 0                       # gleiche Ausschnitte und Werte bei jedem Lauf -> Änderungen direkt vergleichbar
+
+augment:
+  strength: 1.0                 # globaler Faktor fürs Tuning (0 = neutral, 2 = doppelt so stark); nicht für
+                                # flip_rotate, scale, grayscale
+
+  flip_rotate:                  # 0/90/180/270° + Spiegeln, bei jedem Patch
+    enabled: true
+  scale:                        # Bild + Maske vergrößern / verkleinern (ändert die Porengröße!)
+    enabled: false
+    probability: 0.3
+    range: [0.95, 1.05]
+  hue:                          # Farbton, Anteil am Farbkreis (0.03 = ±11°): Weißabgleich, Ätzung
+    enabled: true
+    probability: 0.5
+    range: [-0.03, 0.03]
+  saturation:                   # Faktor der Sättigung
+    enabled: true
+    probability: 0.5
+    range: [0.8, 1.2]
+  grayscale:                    # ganz grau (nur sinnvoll, wenn es im Einsatz Graubilder gibt)
+    enabled: false
+    probability: 0.1
+  brightness:                   # Faktor der Helligkeit
+    enabled: true
+    probability: 0.5
+    range: [0.8, 1.2]
+  contrast:                     # Faktor des Kontrasts um den Patch-Mittelwert
+    enabled: true
+    probability: 0.5
+    range: [0.8, 1.2]
+  gamma:                        # Exponent: andere Kamerakurve
+    enabled: true
+    probability: 0.5
+    range: [0.7, 1.5]
+  gradient:                     # linearer Helligkeitsverlauf über den Patch (0.3 = ±15 %)
+    enabled: true
+    probability: 0.5
+    range: [0.0, 0.3]
+  vignette:                     # Abdunklung zum Rand der Optik (0.3 = bis -30 %)
+    enabled: true
+    probability: 0.3
+    range: [0.0, 0.3]
+  blur:                         # leichte Unschärfe, sigma in px
+    enabled: true
+    probability: 0.5
+    range: [0.0, 1.0]
+  noise:                        # Gauß-Rauschen, Standardabweichung (Grau 0..1)
+    enabled: true
+    probability: 0.5
+    range: [0.0, 0.02]
+  jpeg:                         # JPEG-Artefakte, Qualität (nur sinnvoll, wenn Einsatzbilder JPG sind)
+    enabled: false
+    probability: 0.3
+    range: [60, 95]

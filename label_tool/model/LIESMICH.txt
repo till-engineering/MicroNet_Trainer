@@ -1,0 +1,5 @@
+Hier den Inhalt eines Modellordners hineinkopieren, mindestens:
+    weights.pt
+    model.yaml
+z. B. aus Pore_Detection/models/unet_2026-10-22_1952/.
+Ohne Modell startet das Tool trotzdem: zufällige Fenster, leere Startmasken.

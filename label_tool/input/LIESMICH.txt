@@ -1,0 +1,2 @@
+Hier die großen Aufnahmen ablegen (.tif .tiff .png .jpg .jpeg .bmp, 8 oder 16 bit).
+Unverändert lassen: keine Filter, keine Skalierung – das Modell arbeitet auf den Originalpixeln.

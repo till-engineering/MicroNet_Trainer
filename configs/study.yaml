@@ -1,0 +1,151 @@
+# MicroNet_Trainer – ein Lauf: Prüfen -> Studie -> Bestätigung -> Export -> Evaluation
+#
+#   python run.py                         setzt den letzten unfertigen Lauf fort, sonst neuer Lauf
+#   python run.py --new                   immer neuer Lauf
+#   python run.py --smoke                 Testlauf (~10 min, wenige Bilder) – vor dem 24-h-Lauf starten!
+#   python run.py --evaluate <Modell>     ein Modell (z. B. runs/<name>/best_so_far/lambda0.005) auf test auswerten
+#
+# Relative Pfade gelten ab dem Ordner dieser Datei. Alle Schlüssel werden gebraucht.
+# Zahlen mit Exponent IMMER mit Punkt schreiben (1.0e-4, nicht 1e-4 – sonst liest YAML sie als Text).
+
+name: null                      # Ordner unter output; null = <Datum>_<Uhrzeit>
+output: ../runs                 # Ergebnisse (~2-3 GB je Lauf)
+
+data:
+  train:
+    images: D:/daten/train/images     # <- ANPASSEN; Unterordner erlaubt
+    masks: D:/daten/train/masks       #    gleiche relative Pfade und Namen (Endung darf abweichen), Weiß = Pore
+  test:
+    images: D:/daten/test/images      # <- ANPASSEN; Unterordner (z. B. eigen/, extern/) = eigene Auswertungsgruppen
+    masks: D:/daten/test/masks
+  mask_threshold: 127                 # Grauwert der Maske darüber = Pore (0-255)
+  cache: ../cache                     # Bilder-Cache (.npy, Memory-Map); darf gelöscht werden
+
+split:
+  val_share: 0.2                      # Anteil von train für die Validierung (je Art geschichtet)
+  group_rules:                        # Regex auf den Dateinamen (ohne Endung); erste passende = Gruppe (Gruppe 1
+    - "^(.+)_y\\d{6}_x\\d{6}$"        # der Regex); Label-Tool: alle Ausschnitte einer Aufnahme zusammen.
+                                      # Passt keine Regel: jedes Bild ist seine eigene Gruppe.
+  seed: 0
+
+hardware:
+  device: auto                        # auto | cuda | cpu   (ohne GPU nur Warnung, CPU ist sehr langsam)
+  batch_size: auto                    # auto = größte aus batch_candidates, die passt | feste Zahl
+  batch_candidates: [16, 8, 4]
+  memory_reserve: 0.15                # so viel GPU-Speicher bleibt bei auto frei
+  num_workers: auto                   # Prozesse, die Patches erzeugen; auto = Kerne - 1, höchstens 6
+  prevent_sleep: true                 # Windows während des Laufs nicht schlafen lassen
+
+budget:
+  max_hours: 24                       # gesamte Laufzeit (Pausen durch Abbruch zählen nicht)
+  confirm_hours: 4                    # davon am Ende für die Bestätigung …
+  final_hours: 1                      # … und für Export + Evaluation (immer reserviert)
+
+model:                                # fest – passt zur Pipeline von Pore_Detection
+  encoder: resnet50
+  pretrained: micronet                # micronet (NASA, Schliffbilder; nur resnet50) | imagenet
+  patch_px: 512
+  overlap_px: 64
+
+training:                             # Werte jedes Trials; was unter search: steht, wird stattdessen gesucht
+  steps_per_epoch: 250                # Batches je Epoche (feste Epochenlänge -> planbare Dauer)
+  max_epochs: 30                      # je Trial der Studie
+  early_stopping: 8                   # Epochen ohne Verbesserung -> Trial fertig
+  val_every: 2                        # Validierung jede n-te Epoche (ganze Bilder, wie die Pipeline)
+  warmup_epochs: 1                    # Lernrate steigt linear an, danach Cosinus bis 0
+  image_weighting: area               # Bildauswahl: area (nach Fläche) | sqrt_area | equal
+  pore_share: 0.5                     # Anteil Patches auf einer Pore (Rest zufällig)
+  pore_object_share: 0.5              # davon: Pore als Ganzes ziehen (kleine Poren gleich oft) statt Porenpixel
+  learning_rate: 3.0e-4               # AdamW, Decoder
+  encoder_lr_factor: 1.0              # Encoder-Lernrate = learning_rate x Faktor
+  weight_decay: 1.0e-4
+  bce_weight: 0.7                     # Loss = bce_weight x BCE + (1 - bce_weight) x Dice
+  augment_strength: 1.0               # globaler Faktor der Augmentierung (siehe augment: strength)
+
+search:                               # Suchraum der Studie (Name aus training: low / high / log)
+  learning_rate: {low: 1.0e-5, high: 1.0e-3, log: true}
+  weight_decay: {low: 1.0e-6, high: 1.0e-2, log: true}
+  encoder_lr_factor: {low: 0.1, high: 1.0, log: false}
+  bce_weight: {low: 0.2, high: 0.9, log: false}
+  pore_share: {low: 0.3, high: 0.8, log: false}
+  pore_object_share: {low: 0.0, high: 1.0, log: false}
+  augment_strength: {low: 0.5, high: 1.5, log: false}
+
+study:
+  random_trials: 8                    # erst so viele zufällige Trials, dann TPE
+  pruner_startup_trials: 5            # so viele Trials laufen ganz, bevor abgebrochen wird
+  pruner_warmup_epochs: 6             # vor dieser Epoche wird kein Trial abgebrochen
+  keep_weights: 5                     # Gewichte der besten n Trials (je lambda) behalten, Rest löschen
+  max_trials: null                    # null = so viele, wie in die Zeit passen
+  confirm_top: 2                      # so viele beste Trials werden mit neuem Seed wiederholt
+  confirm_epochs: 40                  # Epochen der Bestätigungsläufe
+
+objective:                            # Zielmaß auf val (Auswahl, KEIN Loss)
+  phantom_lambdas: [0.005, 0]         # Ziel = 0.5 Pixel-F1 + 0.5 Objekt-F1 - lambda x Phantome/Mpx;
+                                      # der ERSTE steuert die Suche, für jeden gibt es ein finales Modell
+  aggregate: mean                     # mean | p10 (10-%-Quantil der Bilder: schlechte Bilder zählen)
+  thresholds: [0.3, 0.4, 0.5, 0.6, 0.7]   # Schwellen während des Trainings
+  final_thresholds: {start: 0.05, stop: 0.95, step: 0.025}   # feine Suche für die finalen Modelle
+
+evaluation:                           # wie Pore_Detection dataset_eval/metrics.py
+  match_iou: 0.5                      # GT-Pore und erkannte Pore sind dieselbe ab dieser IoU
+  small_match_iou: 0.3                # zusätzlicher, lockerer Recall (kleine Poren)
+  rim_px: 2                           # Fehler bis zu diesem Abstand vom GT-Rand = "Porenrand"
+  connectivity: 8
+  size_classes_px: [0, 5, 10, 20, 50, 100]   # untere Klassengrenzen des Äquivalentdurchmessers
+  bootstrap: 1000                     # Wiederholungen für die 95-%-Konfidenzintervalle
+  worst_images: 5                     # Overlays: so viele schlechteste Bilder (Poren / negativ)
+  overlay_max_px: 2000
+  reference_model: ../label_tool/model   # altes Modell zum Vergleich; null = keins
+
+augment:                              # aus augment_tool/augment_config.yaml übernehmen, wenn eingestellt
+  strength: 1.0                       # wird je Trial durch training.augment_strength ersetzt
+  flip_rotate:
+    enabled: true
+  scale:
+    enabled: false
+    probability: 0.3
+    range: [0.95, 1.05]
+  hue:
+    enabled: true
+    probability: 0.5
+    range: [-0.03, 0.03]
+  saturation:
+    enabled: true
+    probability: 0.5
+    range: [0.8, 1.2]
+  grayscale:
+    enabled: false
+    probability: 0.1
+  brightness:
+    enabled: true
+    probability: 0.5
+    range: [0.8, 1.2]
+  contrast:
+    enabled: true
+    probability: 0.5
+    range: [0.8, 1.2]
+  gamma:
+    enabled: true
+    probability: 0.5
+    range: [0.7, 1.5]
+  gradient:
+    enabled: true
+    probability: 0.5
+    range: [0.0, 0.3]
+  vignette:
+    enabled: true
+    probability: 0.3
+    range: [0.0, 0.3]
+  blur:
+    enabled: true
+    probability: 0.5
+    range: [0.0, 1.0]
+  noise:
+    enabled: true
+    probability: 0.5
+    range: [0.0, 0.02]
+  jpeg:
+    enabled: false
+    probability: 0.3
+    range: [60, 95]

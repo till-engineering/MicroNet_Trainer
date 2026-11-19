@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Ergebnisse, Caches
+runs/
+cache/
+
+# Label-Tool: Daten, Modelle, Ergebnisse (nur die LIESMICH-Dateien gehören ins Repo)
+label_tool/input/*
+!label_tool/input/LIESMICH.txt
+label_tool/model/*
+!label_tool/model/LIESMICH.txt
+label_tool/output/
+label_tool/cache/
+
+# Augmentierungs-Vorschau: Daten und Ergebnisse
+augment_tool/input/*
+!augment_tool/input/LIESMICH.txt
+augment_tool/output/
+
+# Modelle / Daten allgemein
+*.pt
+*.pth
+*.npy
+*.npz
+*.db
+
+# Editor / System
+.claude/settings.local.json
+.vscode/
+.idea/
+Thumbs.db

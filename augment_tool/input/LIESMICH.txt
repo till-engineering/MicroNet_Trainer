@@ -1,0 +1,4 @@
+Hier ein paar typische Bilder ablegen (Original, unverändert), möglichst verschiedene:
+eigene und externe, hell und dunkel, mit kleinen und großen Poren.
+Optional die passenden Masken nach masks/ (gleicher Name, Weiß = Pore): dann liegen die
+Ausschnitte auf Poren und der Maskenrand wird eingezeichnet.

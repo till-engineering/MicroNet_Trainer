@@ -1,0 +1,26 @@
+# MicroNet_Trainer – alle Pakete (Label-Tool und Training).
+#
+# 1. PyTorch mit CUDA zuerst, vom Index von PyTorch (nicht PyPI), z. B. für CUDA 12.6:
+#      .venv\Scripts\python -m pip install torch --index-url https://download.pytorch.org/whl/cu126
+#    (passende CUDA-Version: https://pytorch.org/get-started/locally/)
+# 2. dann der Rest:
+#      .venv\Scripts\python -m pip install -r requirements.txt
+
+torch>=2.5
+segmentation-models-pytorch>=0.5
+numpy>=2.0
+opencv-python>=4.10
+pyyaml>=6.0
+tifffile>=2024.8            # sehr große / BigTIFF-Aufnahmen im Label-Tool
+PySide6>=6.7                # Label-Tool (GUI)
+pandas>=2.2                 # Training: Tabellen, Berichte
+xlsxwriter>=3.2
+matplotlib>=3.9             # Training: Kurven, Plots
+tqdm>=4.66
+optuna>=4.0                 # Training: Hyperparameter-Optimierung
+psutil>=6.0                 # Training: Hardware-Ausgabe (RAM, CPU)
+nvidia-ml-py>=12.0          # Training: GPU-Auslastung im Fortschrittsbalken
+
+# MicroNet-Gewichte (kein pip-Paket, ~90 MB in den torch-Cache). Ohne Internet auf dem Trainings-
+# rechner vorher einmal holen:
+#   .venv\Scripts\python -c "import torch; torch.hub.load_state_dict_from_url('https://huggingface.co/jstuckner/microscopy-resnet50-micronet/resolve/main/resnet50_micronet_weights.pth')"
